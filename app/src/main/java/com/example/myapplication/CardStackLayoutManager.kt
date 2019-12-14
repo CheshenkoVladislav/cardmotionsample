@@ -11,6 +11,14 @@ class CardStackLayoutManager : RecyclerView.LayoutManager() {
         )
     }
 
+    override fun canScrollHorizontally(): Boolean {
+        return false
+    }
+
+    override fun canScrollVertically(): Boolean {
+        return false
+    }
+
     override fun onLayoutChildren(recycler: RecyclerView.Recycler?, state: RecyclerView.State?) {
         recycler?.let {
             detachAndScrapAttachedViews(recycler)

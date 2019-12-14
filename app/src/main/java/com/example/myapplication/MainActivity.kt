@@ -23,8 +23,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val recyclerView = findViewById<RecyclerView>(R.id.recycler)
+        val scndRecycler = findViewById<RecyclerView>(R.id.scnd_recycler)
         val adapter = Adapter(recyclerList)
+        val adapter2 = Adapter(mutableListOf(1,5,4,24,5,2,3,24,2,52,52,5,25,25,2,5))
         recyclerView.adapter = adapter
+        scndRecycler.adapter = adapter2
         val simpleCallback = SimpleItemTouchHelperCallback(adapter)
         val helper = ItemTouchHelper(simpleCallback)
         helper.attachToRecyclerView(recyclerView)

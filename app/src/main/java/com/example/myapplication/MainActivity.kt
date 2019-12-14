@@ -1,14 +1,22 @@
 package com.example.myapplication
 
+import android.content.Context
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
 import androidx.recyclerview.widget.RecyclerView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.dynamicanimation.animation.DynamicAnimation
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
+import androidx.dynamicanimation.animation.SpringForce.DAMPING_RATIO_LOW_BOUNCY
+import androidx.dynamicanimation.animation.SpringForce.STIFFNESS_LOW
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
 import java.util.*
@@ -16,25 +24,34 @@ import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-    private val recyclerList = mutableListOf(1,2,3,4)
+    private val recyclerList = mutableListOf(1, 2, 3, 4)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         val recyclerView = findViewById<RecyclerView>(R.id.recycler)
-        val scndRecycler = findViewById<RecyclerView>(R.id.scnd_recycler)
+        val scndRecycler = findViewById<RecyclerView>(R.id.scnd_recycler).also { scnd ->
+            SpringAnimation(scnd, DynamicAnimation.TRANSLATION_Y, 0f)
+        }
+        val maxHeight =
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 400f, resources.displayMetrics)
         val adapter = Adapter(recyclerList)
-        val adapter2 = Adapter(mutableListOf(1,5,4,24,5,2,3,24,2,52,52,5,25,25,2,5))
+        val adapter2 = Adapter(mutableListOf(1, 5, 4, 24, 5, 2, 3, 24, 2, 52, 52, 5, 25, 25, 2, 5))
         recyclerView.adapter = adapter
         scndRecycler.adapter = adapter2
+        val springAnim = SpringAnimation(recyclerView, DynamicAnimation.TRANSLATION_Y, 0f)
         val simpleCallback = SimpleItemTouchHelperCallback(adapter)
         val helper = ItemTouchHelper(simpleCallback)
         helper.attachToRecyclerView(recyclerView)
-        val minRecyclerHeight = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
-            300f, resources.displayMetrics).toInt()
-        val maxRecyclerHeight = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
-            800f, resources.displayMetrics)
+        val minRecyclerHeight = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            300f, resources.displayMetrics
+        ).toInt()
+        val maxRecyclerHeight = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            800f, resources.displayMetrics
+        )
 //        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
 //
 //            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {

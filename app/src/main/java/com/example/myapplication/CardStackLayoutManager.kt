@@ -30,7 +30,7 @@ class CardStackLayoutManager : RecyclerView.LayoutManager() {
             val firstChildHeight = firstView.measuredHeight
             layoutDecorated(firstView, 0, 0, firstChildWidth, firstChildHeight)
             val diffBetweenRootAndChildHeight = height - firstChildHeight
-            val bias = diffBetweenRootAndChildHeight/itemCount
+            val bias = diffBetweenRootAndChildHeight/(itemCount - 1)
             for (i in 1 until itemCount) {
                 val nextView = recycler.getViewForPosition(i)
                 addView(nextView)

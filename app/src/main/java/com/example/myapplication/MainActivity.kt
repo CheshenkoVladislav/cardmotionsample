@@ -10,17 +10,11 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.*
 import androidx.constraintlayout.motion.widget.MotionLayout
-import androidx.constraintlayout.motion.widget.MotionScene
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.GestureDetectorCompat
-import androidx.core.view.marginTop
-import androidx.core.view.setMargins
 import androidx.recyclerview.widget.RecyclerView
-import androidx.dynamicanimation.animation.DynamicAnimation
-import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
-import androidx.transition.Transition
+import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.activity_main.view.*
 import java.util.*
 import kotlin.math.roundToInt
@@ -29,26 +23,65 @@ import kotlin.math.roundToInt
 class MainActivity : AppCompatActivity() {
 
     private val recyclerList = mutableListOf(1, 2, 3, 4)
+    var currentScrollPosition = 0
+    lateinit var gestureDetectorCompat: GestureDetectorCompat
+    private var canStretch = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         val motionLayout = findViewById<MotionLayout>(R.id.root)
-        val recyclerView = findViewById<MyRecyclerView>(R.id.recycler).apply {
+        val recyclerView = findViewById<StretchingCardRecyclerView>(R.id.recycler).apply {
             root = motionLayout
         }
-        val scndRecycler = findViewById<RecyclerView>(R.id.scnd_recycler).also { scnd ->
-            SpringAnimation(scnd, DynamicAnimation.TRANSLATION_Y, 0f)
-        }
+        val scndRecycler = findViewById<RecyclerView>(R.id.scnd_recycler)
         val adapter = Adapter(recyclerList)
         val adapter2 = Adapter(mutableListOf(1, 5, 4, 24, 5, 2, 3, 24, 2, 52, 52, 5, 25, 25, 2, 5))
         recyclerView.adapter = adapter
+        recyclerView.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                recyclerView.touch(e)
+                return super.onInterceptTouchEvent(rv, e)
+            }
+        })
         scndRecycler.adapter = adapter2
+        scndRecycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
+                currentScrollPosition += dy
+                canStretch =
+                    (currentScrollPosition == 0 || currentScrollPosition % 100 == 0)
+            }
+        })
+        gestureDetectorCompat =
+            GestureDetectorCompat(this, object : GestureDetector.SimpleOnGestureListener() {
+                override fun onScroll(
+                    e1: MotionEvent?,
+                    e2: MotionEvent?,
+                    distanceX: Float,
+                    distanceY: Float
+                ): Boolean {
+                    if (canStretch) {
+                        return recyclerView.stretchView(distanceY)
+                    }
+                    return super.onScroll(e1, e2, distanceX, distanceY)
+                }
+            })
+        view.setOnTouchListener { v, event ->
+            gestureDetectorCompat.onTouchEvent(event)
+            return@setOnTouchListener false
+        }
+        scndRecycler.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                if (!recyclerView.onFingerUp(e)) {
+                    gestureDetectorCompat.onTouchEvent(e)
+                }
+                return super.onInterceptTouchEvent(rv, e)
+            }
+        })
         val simpleCallback = SimpleItemTouchHelperCallback(adapter)
         val helper = ItemTouchHelper(simpleCallback)
         helper.attachToRecyclerView(recyclerView)
-
     }
 }
 
@@ -103,7 +136,7 @@ class SimpleItemTouchHelperCallback(private val mAdapter: ItemTouchHelperAdapter
     override fun getMovementFlags(recyclerView: RecyclerView, viewHolder: ViewHolder): Int {
         val dragFlags = ItemTouchHelper.UP or ItemTouchHelper.DOWN
         val swipeFlags = ItemTouchHelper.START or ItemTouchHelper.END
-        return ItemTouchHelper.Callback.makeMovementFlags(dragFlags, swipeFlags)
+        return makeMovementFlags(dragFlags, swipeFlags)
     }
 
     override fun onMove(
@@ -115,61 +148,109 @@ class SimpleItemTouchHelperCallback(private val mAdapter: ItemTouchHelperAdapter
     }
 
     override fun onSwiped(viewHolder: ViewHolder, direction: Int) {
-        mAdapter.onItemDismiss(viewHolder.adapterPosition)
     }
 
 }
 
 class Holder(view: View) : RecyclerView.ViewHolder(view) {
 
+    init {
+        view.setOnClickListener {
+            println("CLick")
+        }
+    }
 }
 
-class MyRecyclerView(context: Context, attributeSet: AttributeSet) :
+class StretchingCardRecyclerView(context: Context, attributeSet: AttributeSet) :
     RecyclerView(context, attributeSet) {
-
     lateinit var root: MotionLayout
-    private val gestureDetector = GestureDetectorCompat(context, SimpleGestureListener())
 
+    private val gestureDetector = GestureDetectorCompat(context, GestureListener())
     private var inChangeHeigh = false
-    private var enableMotionScene = true
 
+    private var enableMotionScene = true
     private val maxHeight =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 300f, resources.displayMetrics)
-    private val maxOverHeight =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 350f, resources.displayMetrics)
-    private val minHeight =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 200f, resources.displayMetrics)
 
+    private val maxOverHeight =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 450f, resources.displayMetrics)
     private var force = 0f
+
     private var maxScrollForce = 1f
 
-    override fun onTouchEvent(e: MotionEvent?): Boolean {
+    fun touch(e: MotionEvent?) {
         when (e?.action) {
             MotionEvent.ACTION_UP -> {
-                println("ACTION UP!!! = $scaleY")
+                onFingerUp(e)
+            }
+        }
+        gestureDetector.onTouchEvent(e)
+    }
+
+    fun onFingerUp(e: MotionEvent?): Boolean {
+        when (e?.action) {
+            MotionEvent.ACTION_UP -> {
                 if (height > maxHeight) {
-                    println("ACTION UP!!! SCALE")
-                    val heightAnimator =
-                        ValueAnimator.ofInt(height, maxHeight.toInt()).setDuration(200)
-                    heightAnimator.addListener(object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator?) {
-                            root.apply {
-                                loadLayoutDescription(R.xml.scenes)
-                                enableMotionScene = true
-                            }
-                        }
-                    })
-                    heightAnimator.addUpdateListener {
-                        layoutParams.height = it.animatedValue as Int
-                        recycler.requestLayout()
-                    }
-                    heightAnimator.start()
+                    animatedSqueezeView()
                     return true
                 }
             }
         }
-        gestureDetector.onTouchEvent(e)
-        return super.onTouchEvent(e)
+        return false
+    }
+
+    fun stretchView(distanceY: Float): Boolean {
+        if (!inChangeHeigh && distanceY < 0 && height >= maxHeight.toInt()) {
+            inChangeHeigh = true
+            toggleMotionScene(false)
+            val currHeight = height
+            calculateForce()
+            layoutParams.height = (currHeight - (distanceY * force)).roundToInt()
+            recycler.requestLayout()
+            inChangeHeigh = false
+            return true
+        }
+        return false
+    }
+
+    fun isOverStretch() = height > maxHeight
+
+    fun squeezeView(distanceY: Float) {
+        if (!inChangeHeigh && distanceY > 0) {
+            if (height > maxHeight.toInt()) {
+//                inChangeHeigh = true
+//                toggleMotionScene(false)
+//                val currHeight = height
+//                layoutParams.height = (currHeight - distanceY).roundToInt()
+//                recycler.requestLayout()
+                toggleMotionScene(true)
+            } else {
+                toggleMotionScene(true)
+            }
+            inChangeHeigh = false
+        }
+    }
+
+    private fun animatedSqueezeView() {
+        val heightAnimator =
+            ValueAnimator.ofInt(height, maxHeight.toInt()).setDuration(200)
+        heightAnimator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator?) {
+                toggleMotionScene(true)
+            }
+        })
+        heightAnimator.addUpdateListener {
+            layoutParams.height = it.animatedValue as Int
+            recycler.requestLayout()
+        }
+        heightAnimator.start()
+    }
+
+    private fun toggleMotionScene(isEnable: Boolean) {
+        root.apply {
+            loadLayoutDescription(if (isEnable) R.xml.scenes else 0)
+            enableMotionScene = isEnable
+        }
     }
 
     private fun calculateForce() {
@@ -177,22 +258,7 @@ class MyRecyclerView(context: Context, attributeSet: AttributeSet) :
         force = maxScrollForce - (height / onePercentValue) / 100f
     }
 
-    inner class SimpleGestureListener : GestureDetector.SimpleOnGestureListener() {
-
-        override fun onDown(e: MotionEvent?): Boolean {
-            println("ON DOWN!!! ")
-            return super.onDown(e)
-        }
-
-        override fun onFling(
-            e1: MotionEvent?,
-            e2: MotionEvent?,
-            velocityX: Float,
-            velocityY: Float
-        ): Boolean {
-            println("FLING EVENT = $e1, $e2")
-            return super.onFling(e1, e2, velocityX, velocityY)
-        }
+    private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {
 
         override fun onScroll(
             e1: MotionEvent?,
@@ -200,41 +266,26 @@ class MyRecyclerView(context: Context, attributeSet: AttributeSet) :
             distanceX: Float,
             distanceY: Float
         ): Boolean {
-            if (!inChangeHeigh) {
+            if (stretchView(distanceY)) {
+                return true
+            } else if (!inChangeHeigh) {
                 inChangeHeigh = true
-                if (distanceY < 0 && height >= maxHeight.toInt()) {
-                    if (enableMotionScene) {
-                        root.apply {
-                            loadLayoutDescription(0)
-                            enableMotionScene = false
-                        }
+                if (!enableMotionScene) {
+                    if (height > maxHeight.toInt()) {
+                        val currHeight = height
+                        layoutParams.height = currHeight - distanceY.toInt()
+                        recycler.requestLayout()
+                    } else {
+                        toggleMotionScene(true)
                     }
-                    val currHeight = height
-                    calculateForce()
-                    println("FORCE = $force")
-                    layoutParams.height = (currHeight - (distanceY * force)).roundToInt()
-                    recycler.requestLayout()
-                } else {
-                    if (!enableMotionScene) {
-                        if (height > maxHeight.toInt()) {
-                            val currHeight = height
-                            layoutParams.height = currHeight - distanceY.toInt()
-                            recycler.requestLayout()
-                        } else {
-                            root.apply {
-                                loadLayoutDescription(R.xml.scenes)
-                                enableMotionScene = true
-                            }
-                        }
-                    }
-                    val currentProgress = root.progress
-                    val newProgress = currentProgress + (distanceY / 100f)
-                    root.progress = newProgress
                 }
+                val currentProgress = root.progress
+                val newProgress = currentProgress + (distanceY / 100f)
+                root.progress = newProgress
                 inChangeHeigh = false
                 return true
             }
-            return super.onScroll(e1, e2, distanceX, distanceY)
+            return false
         }
     }
 }
